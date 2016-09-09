@@ -17,7 +17,6 @@
     "use strict";
 
     var QueryBuilder = $.fn.queryBuilder;
-
     // DEFAULT CONFIG
     // ===============================
     QueryBuilder.defaults({
@@ -29,13 +28,47 @@
             greater:          function(v){ return {'gt': v}; },
             greater_or_equal: function(v){ return {'gte': v}; },
             between:          function(v){ return {'gte': v[0], 'lte': v[1]}; },
-            in :              function(v){ return v.split(',').map(function(e) { return e.trim();}); }
+            not_between:      function(v){ return {'gte': v[0], 'lte': v[1]}; },
+            in:               function(v){ return v.split(',').map(function(e) { return e.trim();}); },
+            not_in:           function(v){ return v.split(',').map(function(e) { return e.trim();}); },
+            begins_with:      function(v){ return v + '*'; },
+            not_begins_with:  function(v){ return v + '*'; },
+            ends_with:        function(v){ return '*' + v; },
+            not_ends_with:    function(v){ return '*' + v; },
+            contains:         function(v){ return '*' + v + '*' },
+            not_contains:     function(v){ return '*' + v + '*' }
         },
         ESQueryStringQueryOperators: {
-            is_not_null:           function(){ return "_exists_:"; },
+            is_not_null:      function(){ return "_exists_:"; },
             is_null:          function(){ return "_missing_:";},
             contains:         function(v){ return v; },
             between:          function(v){ return '[' + v[0] + ' TO '+ v[1] + "]"; },
+        },
+        ESQueryDSLWord: {
+            term: [
+                "equal",
+                "not_equal"
+            ],
+            terms: [
+                "in",
+                "not_in"
+            ],
+            wildcard: [
+                "begins_with",
+                "not_begins_with",
+                "contains",
+                "not_contains",
+                "ends_with",
+                "not_ends_with"
+            ],
+            range: [
+                "less",
+                "less_or_equal",
+                "greater",
+                "greater_or_equal",
+                "between",
+                "not_between"
+            ]
         }
     });
 
@@ -94,7 +127,7 @@
                         if (ope.nb_inputs !== 0) {
                             var es_key_val = {};
                             es_key_val[rule.field] =  mdb.call(that, get_value(rule));
-                            part[getQueryDSLWord(rule)] = es_key_val;
+                            part[getQueryDSLWord.call(that, rule)] = es_key_val;
                         }
 
                         if (data.condition === 'OR' && rule.operator === 'not_equal') {
@@ -103,7 +136,9 @@
                             return part
                         }
                     }
-
+                    if (rule.operator == undefined) {
+                        console.log('>>>>', JSON.stringify(rule));
+                    }
                     var clause = getClauseWord(data.condition, rule.operator);
 
                     if (rule.rules && rule.rules.length>0) {
@@ -178,7 +213,6 @@
 
                     }
                     if (rule.rules && rule.rules.length>0) {
-                        console.log(parts);
                         parts += "(" + parse(rule) + ")";
                     } else {
                         parts += make_query(rule);
@@ -193,32 +227,29 @@
     /**
     * Get the right type of query term in elasticsearch DSL
     */
-    function getQueryDSLWord(rule) {
-        if (rule.operator === 'equal' || rule.operator === 'not_equal') {
-            if (rule.value.indexOf('*') > -1 || rule.value.indexOf('?') > -1) {
-                return 'wildcard';
-            } else {
-                return 'term';
+    var getQueryDSLWord = function (rule) {
+        var words = this.settings.ESQueryDSLWord;
+        for(var word in words) {
+            if (words[word].indexOf(rule.operator) > -1){
+                return word;
             }
         }
 
-        if (rule.operator === 'in') {
-            return 'terms';
-        }
-
-        else {
-            return 'range';
-        }
-    }
+        return 'wildcard';
+    };
 
     /**
     * Get the right type of clause in the bool query
     */
     function getClauseWord(condition, operator) {
-        if (condition === 'AND' && operator !== 'not_equal') { return 'must' }
-        if (condition === 'AND' && operator === 'not_equal') { return 'must_not' }
-        if (condition === 'AND' && operator === 'not_equal') { return 'must_not' }
-        if (condition === 'OR') { return 'should' }
-    }
+        if (condition == 'OR') {
+            return 'should';
+        }
 
+        if (operator != undefined && operator.indexOf('not_') == 0) {
+            return 'must_not';
+        }
+
+        return 'must';
+    }
 }));

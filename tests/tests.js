@@ -32,6 +32,62 @@ $(function() {
         }
     });
 
+
+
+    QUnit.test("Begins with", function (assert) {
+
+        $b.queryBuilder({
+            filters: basic_filters,
+            rules: {
+                condition: 'AND',
+                rules: [{id: 'name', field: 'name', operator: 'begins_with', value: "some"}]
+            }
+        });
+
+        assert.deepEqual(
+            $b.queryBuilder('getESBool'),
+            {"bool": {"must":[{"wildcard":{"name":"some*"}}]}},
+            'Should build a term query'
+        );
+
+    });
+
+    QUnit.test("Ends with", function (assert) {
+
+        $b.queryBuilder({
+            filters: basic_filters,
+            rules: {
+                condition: 'AND',
+                rules: [{id: 'name', field: 'name', operator: 'ends_with', value: "some"}]
+            }
+        });
+
+        assert.deepEqual(
+            $b.queryBuilder('getESBool'),
+            {"bool": {"must":[{"wildcard":{"name":"*some"}}]}},
+            'Should build a term query'
+        );
+
+    });
+
+    QUnit.test("Contains", function (assert) {
+
+        $b.queryBuilder({
+            filters: basic_filters,
+            rules: {
+                condition: 'AND',
+                rules: [{id: 'name', field: 'name', operator: 'contains', value: "some"}]
+            }
+        });
+
+        assert.deepEqual(
+            $b.queryBuilder('getESBool'),
+            {"bool": {"must":[{"wildcard":{"name":"*some*"}}]}},
+            'Should build a term query'
+        );
+
+    });
+
     QUnit.test("Empty builder", function (assert) {
 
         assert.expect(3);
@@ -93,26 +149,6 @@ $(function() {
         );
 
     });
-
-    QUnit.test("Wildcard", function (assert) {
-
-        $b.queryBuilder({
-            filters: basic_filters,
-            rules: {
-                condition: 'AND',
-                rules: [{id: 'name', field: 'name', operator: 'equal', value: "*gmail*"}]
-            }
-        });
-
-        assert.deepEqual(
-            $b.queryBuilder('getESBool'),
-            {"bool": {"must":[{"wildcard":{"name":"*gmail*"}}]}},
-            'Should build a wildcard query'
-        );
-
-    });
-
-
 
     QUnit.test("Not equal", function (assert) {
 
