@@ -106,15 +106,6 @@
                 };
 
                 data.rules.forEach(function(rule) {
-
-                    function get_value(rule) {
-                        if (rule.data && rule.data.hasOwnProperty('transform')) {
-                            return window[rule.data.transform].call(this, rule.value);
-                        } else {
-                            return rule.value;
-                        }
-                    }
-
                     function make_query(rule) {
                         var mdb = that.settings.ESBoolOperators[rule.operator],
                         ope = that.getOperatorByType(rule.operator),
@@ -126,7 +117,7 @@
 
                         if (ope.nb_inputs !== 0) {
                             var es_key_val = {};
-                            es_key_val[rule.field] =  mdb.call(that, get_value(rule));
+                            es_key_val[_getRuleField(rule)] =  mdb.call(that, _getRuleValue(rule));
                             part[getQueryDSLWord.call(that, rule)] = es_key_val;
                         }
 
@@ -135,9 +126,6 @@
                         } else {
                             return part
                         }
-                    }
-                    if (rule.operator == undefined) {
-                        console.log('>>>>', JSON.stringify(rule));
                     }
                     var clause = getClauseWord(data.condition, rule.operator);
 
@@ -181,10 +169,6 @@
                 var parts = "";
 
                 data.rules.forEach(function(rule, index) {
-                    function get_value(rule) {
-                            return rule.value;
-                    }
-
                     function make_query(rule) {
                         var mdb = that.settings.ESQueryStringQueryOperators[rule.operator],
                         ope = that.getOperatorByType(rule.operator),
@@ -196,11 +180,11 @@
 
                         var es_key_val = "";
                         if (ope.nb_inputs !== 0) {
-                            es_key_val += rule.field + ":" + mdb.call(that, rule.value);
+                            es_key_val += _getRuleField(rule) + ":" + mdb.call(that, _getRuleValue(rule));
                             part += es_key_val;
                         }
                         else if (ope.nb_inputs === 0) {
-                            es_key_val += mdb.call(that, rule.value) + rule.field;
+                            es_key_val += mdb.call(that, _getRuleValue(rule)) + _getRuleField(rule);
                             part += es_key_val;
                         }
 
@@ -223,6 +207,34 @@
             }(data));
         }
     });
+
+    function _getRuleField(rule) {
+        if (rule.hasOwnProperty('data')) {
+            return _getValueOrCall(rule.data, 'field', rule);
+        }
+
+        return rule.field;
+    }
+
+    function _getRuleValue(rule) {
+        if (rule.hasOwnProperty('data')) {
+            return _getValueOrCall(rule.data, 'value', rule);
+        }
+
+        return rule.value;
+    }
+
+    function _getValueOrCall(obj, prop, param) {
+        if (!obj.hasOwnProperty(prop)) {
+            return false;
+        }
+
+        if (obj[prop] instanceof Function){
+            return obj[prop].call(this, param);
+        }
+
+        return obj[prop];
+    }
 
     /**
     * Get the right type of query term in elasticsearch DSL
