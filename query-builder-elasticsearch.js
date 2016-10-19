@@ -1,9 +1,9 @@
-/*
-* jQuery QueryBuilder Elasticsearch 'bool' query support
-* https://github.com/mistic100/jQuery-QueryBuilder
-* https://www.elastic.co/
-* https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-bool-query.html
-*/
+/**
+ * jQuery QueryBuilder Elasticsearch 'bool' query support
+ * https://github.com/mistic100/jQuery-QueryBuilder
+ * https://www.elastic.co/
+ * https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-bool-query.html
+ */
 
 // Register plugin
 (function(root, factory) {
@@ -36,7 +36,11 @@
             ends_with:        function(v){ return '*' + v; },
             not_ends_with:    function(v){ return '*' + v; },
             contains:         function(v){ return '*' + v + '*' },
-            not_contains:     function(v){ return '*' + v + '*' }
+            not_contains:     function(v){ return '*' + v + '*' },
+            is_empty:         function(v, rule){ return {'field': rule.field} },
+            is_not_empty:     function(v, rule){ return {'field': rule.field} },
+            is_null:          function(v, rule){ return {'field': rule.field} },
+            is_not_null:      function(v, rule){ return {'field': rule.field} },
         },
         ESQueryStringQueryOperators: {
             is_not_null:      function(){ return "_exists_:"; },
@@ -68,6 +72,12 @@
                 "greater_or_equal",
                 "between",
                 "not_between"
+            ],
+            exists: [
+                "is_empty",
+                "is_not_empty",
+                "is_null",
+                "is_not_null"
             ]
         }
     });
@@ -77,10 +87,10 @@
     // ===============================
     QueryBuilder.extend({
         /**
-        * Get rules as an elasticsearch bool query
-        * @param data {object} (optional) rules
-        * @return {object}
-        */
+         * Get rules as an elasticsearch bool query
+         * @param data {object} (optional) rules
+         * @return {object}
+         */
         getESBool: function(data) {
             data = (data===undefined) ? this.getRules() : data;
 
@@ -107,18 +117,21 @@
 
                 data.rules.forEach(function(rule) {
                     function make_query(rule) {
+                        var es_key_val = {};
                         var mdb = that.settings.ESBoolOperators[rule.operator],
-                        ope = that.getOperatorByType(rule.operator),
-                        part = {};
+                            ope = that.getOperatorByType(rule.operator),
+                            part = {};
 
                         if (mdb === undefined) {
                             error('Unknown elasticsearch operation for operator "{0}"', rule.operator);
                         }
 
                         if (ope.nb_inputs !== 0) {
-                            var es_key_val = {};
-                            es_key_val[_getRuleField(rule)] =  mdb.call(that, _getRuleValue(rule));
+                            es_key_val[_getRuleField(rule)] =  mdb.call(that, _getRuleValue(rule), rule);
                             part[getQueryDSLWord.call(that, rule)] = es_key_val;
+                        } else {
+                            //es_key_val[_getRuleField(rule)] =  mdb.call(that, _getRuleValue(rule), rule);
+                            part[getQueryDSLWord.call(that, rule)] = mdb.call(that, _getRuleValue(rule), rule);
                         }
 
                         if (data.condition === 'OR' && rule.operator === 'not_equal') {
@@ -143,10 +156,10 @@
         },
 
         /**
-        * Get rules as an elasticsearch query string query
-        * @param data {object} (optional) rules
-        * @return {object}
-        */
+         * Get rules as an elasticsearch query string query
+         * @param data {object} (optional) rules
+         * @return {object}
+         */
         getESQueryStringQuery: function(data) {
             data = (data===undefined) ? this.getRules() : data;
 
@@ -171,8 +184,8 @@
                 data.rules.forEach(function(rule, index) {
                     function make_query(rule) {
                         var mdb = that.settings.ESQueryStringQueryOperators[rule.operator],
-                        ope = that.getOperatorByType(rule.operator),
-                        part = "";
+                            ope = that.getOperatorByType(rule.operator),
+                            part = "";
 
                         if (mdb === undefined) {
                             error('Unknown elasticsearch operation for operator "{0}"', rule.operator);
@@ -237,8 +250,8 @@
     }
 
     /**
-    * Get the right type of query term in elasticsearch DSL
-    */
+     * Get the right type of query term in elasticsearch DSL
+     */
     var getQueryDSLWord = function (rule) {
         var words = this.settings.ESQueryDSLWord;
         for(var word in words) {
@@ -251,14 +264,18 @@
     };
 
     /**
-    * Get the right type of clause in the bool query
-    */
+     * Get the right type of clause in the bool query
+     */
     function getClauseWord(condition, operator) {
         if (condition == 'OR') {
             return 'should';
         }
 
-        if (operator != undefined && operator.indexOf('not_') == 0) {
+        if (["is_not_empty", "is_not_null"].indexOf(operator) > -1) {
+            return 'must';
+        }
+
+        if (operator != undefined && operator.indexOf('not_') > -1 || ["is_empty", "is_null"].indexOf(operator) > -1) {
             return 'must_not';
         }
 
