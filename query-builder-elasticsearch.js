@@ -222,7 +222,7 @@
     });
 
     function _getRuleField(rule) {
-        if (rule.hasOwnProperty('data')) {
+        if (rule.hasOwnProperty('data') && rule.data.hasOwnProperty('field')) {
             return _getValueOrCall(rule.data, 'field', rule);
         }
 
@@ -230,7 +230,7 @@
     }
 
     function _getRuleValue(rule) {
-        if (rule.hasOwnProperty('data')) {
+        if (rule.hasOwnProperty('data') && rule.data.hasOwnProperty('value')) {
             return _getValueOrCall(rule.data, 'value', rule);
         }
 
